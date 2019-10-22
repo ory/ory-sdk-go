@@ -1,6 +1,8 @@
 package ory
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
@@ -48,11 +50,15 @@ func NewMiddleware(
 		wku: wellKnownURL,
 		jm: jwtmiddleware.New(jwtmiddleware.Options{
 			ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-				k, err := jc.GetKey(token.Header["kid"].(string))
-				if err != nil {
+				if raw, ok := token.Header["kid"]; !ok {
+					return nil, errors.New(`jwt from authorization HTTP header is missing value for "kid" in token header`)
+				} else if kid, ok := raw.(string); !ok {
+					return nil, fmt.Errorf(`jwt from authorization HTTP header is expecting string value for "kid" in tokenWithoutKid header but got: %T`, raw)
+				} else if k, err := jc.GetKey(kid); err != nil {
 					return nil, err
+				} else {
+					return k.Key, nil
 				}
-				return k.Key, nil
 			},
 			ErrorHandler:  c.ErrorHandler,
 			SigningMethod: jwt.SigningMethodRS256,
