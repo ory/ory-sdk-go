@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/dgrijalva/jwt-go"
@@ -12,6 +13,7 @@ import (
 )
 
 type Middleware struct {
+	o   *middlewareOptions
 	wku string
 	jm  *jwtmiddleware.JWTMiddleware
 }
@@ -19,6 +21,7 @@ type Middleware struct {
 type middlewareOptions struct {
 	Debug        bool
 	ErrorHandler func(w http.ResponseWriter, r *http.Request, err string)
+	ExcludePaths []string
 }
 
 type MiddlewareOption func(*middlewareOptions)
@@ -35,6 +38,12 @@ func MiddlewareDebugEnabled() MiddlewareOption {
 	}
 }
 
+func MiddlewareExcludePaths(paths ...string) MiddlewareOption {
+	return func(o *middlewareOptions) {
+		o.ExcludePaths = append(o.ExcludePaths, paths...)
+	}
+}
+
 func NewMiddleware(
 	wellKnownURL string,
 	opts ...MiddlewareOption,
@@ -47,6 +56,7 @@ func NewMiddleware(
 
 	jc := jwksx.NewFetcher(wellKnownURL)
 	return &Middleware{
+		o:   c,
 		wku: wellKnownURL,
 		jm: jwtmiddleware.New(jwtmiddleware.Options{
 			ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
@@ -60,14 +70,23 @@ func NewMiddleware(
 					return k.Key, nil
 				}
 			},
-			ErrorHandler:  c.ErrorHandler,
-			SigningMethod: jwt.SigningMethodRS256,
-			UserProperty:  identityContextKey,
+			ErrorHandler:        c.ErrorHandler,
+			SigningMethod:       jwt.SigningMethodRS256,
+			UserProperty:        identityContextKey,
 			CredentialsOptional: false,
 		}),
 	}
 }
 
 func (h *Middleware) NegroniHandler() negroni.Handler {
-	return negroni.HandlerFunc(h.jm.HandlerWithNext)
+	return negroni.HandlerFunc(func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+		for _, excluded := range h.o.ExcludePaths {
+			if strings.HasPrefix(r.URL.Path, excluded) {
+				next(w, r)
+				return
+			}
+		}
+
+		h.jm.HandlerWithNext(w, r, next)
+	})
 }

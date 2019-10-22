@@ -41,7 +41,7 @@ func SessionFromRequest(r *http.Request) (*Session, error) {
 	}
 
 	if s.Identity.ID == "" {
-		return nil,  errors.New("expected identity.id to be set but no value was set")
+		return nil, errors.New("expected identity.id to be set but no value was set")
 	}
 
 	return &s, nil

@@ -52,6 +52,9 @@ func TestSessionFromRequest(t *testing.T) {
 	defer ks.Close()
 
 	router := httprouter.New()
+	router.GET("/anonymous", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		w.Write([]byte("ok"))
+	})
 	router.GET("/me", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		s, err := SessionFromRequest(r)
 		require.NoError(t, err)
@@ -60,7 +63,7 @@ func TestSessionFromRequest(t *testing.T) {
 		require.NoError(t, json.NewEncoder(w).Encode(s))
 	})
 	n := negroni.New()
-	n.Use(NewMiddleware(ks.URL).NegroniHandler())
+	n.Use(NewMiddleware(ks.URL, MiddlewareExcludePaths("/anonymous")).NegroniHandler())
 	n.UseHandler(router)
 
 	ts := httptest.NewServer(n)
@@ -119,4 +122,8 @@ func TestSessionFromRequest(t *testing.T) {
 			assert.Equal(t, tc.expectedResponse, strings.TrimSpace(string(body)))
 		})
 	}
+
+	res, err := http.Get(ts.URL + "/anonymous")
+	require.NoError(t, err)
+	assert.Equal(t, 200, res.StatusCode)
 }
