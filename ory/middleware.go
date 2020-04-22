@@ -72,7 +72,7 @@ func NewMiddleware(
 			},
 			ErrorHandler:        c.ErrorHandler,
 			SigningMethod:       jwt.SigningMethodRS256,
-			UserProperty:        identityContextKey,
+			UserProperty:        IdentityContextKey,
 			CredentialsOptional: false,
 		}),
 	}

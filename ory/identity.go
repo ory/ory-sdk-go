@@ -10,7 +10,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-const identityContextKey = "identity"
+const IdentityContextKey = "identity"
 
 type Session struct {
 	Identity Identity `json:"identity"`
@@ -21,28 +21,32 @@ type Identity struct {
 }
 
 func SessionFromRequest(r *http.Request) (*Session, error) {
-	var s Session
-	raw := r.Context().Value(identityContextKey)
+	raw := r.Context().Value(IdentityContextKey)
 	if raw == nil {
-		return nil, fmt.Errorf(`expected context key "%s" to transport a value but received nil`, identityContextKey)
+		return nil, fmt.Errorf(`expected context key "%s" to transport a value but received nil`, IdentityContextKey)
 	}
 
 	token, ok := raw.(*jwt.Token)
 	if !ok {
-		return nil, fmt.Errorf(`expected context key "%s" to transport value of type *jwt.MapClaims but got type: %T`, identityContextKey, raw)
+		return nil, fmt.Errorf(`expected context key "%s" to transport value of type *jwt.MapClaims but got type: %T`, IdentityContextKey, raw)
 	}
 
 	var buff bytes.Buffer
+	var c jwt.StandardClaims
 	if err := json.NewEncoder(&buff).Encode(token.Claims); err != nil {
 		return nil, fmt.Errorf("unable to encode session data: %w", err)
 	}
-	if err := json.NewDecoder(&buff).Decode(&s); err != nil {
+	if err := json.NewDecoder(&buff).Decode(&c); err != nil {
 		return nil, fmt.Errorf("unable to decode session data: %w", err)
 	}
 
-	if s.Identity.ID == "" {
-		return nil, errors.New("expected identity.id to be set but no value was set")
+	if c.Subject == "" {
+		return nil, errors.New("expected subject claim to be set but no value was set")
 	}
 
-	return &s, nil
+	return &Session{
+		Identity: Identity{
+			ID: c.Subject,
+		},
+	}, nil
 }
