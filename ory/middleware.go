@@ -8,8 +8,9 @@ import (
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/ory/x/jwksx"
 	"github.com/urfave/negroni"
+
+	"github.com/ory/x/jwksx"
 )
 
 type Middleware struct {

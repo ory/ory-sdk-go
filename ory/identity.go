@@ -3,9 +3,11 @@ package ory
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/gofrs/uuid"
+	"github.com/pkg/errors"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -17,7 +19,7 @@ type Session struct {
 }
 
 type Identity struct {
-	ID string `json:"id"`
+	ID uuid.UUID `json:"id"`
 }
 
 func SessionFromRequest(r *http.Request) (*Session, error) {
@@ -44,9 +46,14 @@ func SessionFromRequest(r *http.Request) (*Session, error) {
 		return nil, errors.New("expected subject claim to be set but no value was set")
 	}
 
+	userID, err := uuid.FromString(c.Subject)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	return &Session{
 		Identity: Identity{
-			ID: c.Subject,
+			ID: userID,
 		},
 	}, nil
 }
